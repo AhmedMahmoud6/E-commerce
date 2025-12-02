@@ -12,10 +12,6 @@ app.use("/api/products", productRoutes);
 app.use("/api/register", registerRoutes);
 app.use("/api/login", loginRoutes);
 
-app.get("*", (req, res) => {
-  res.status(404).send("Not Found");
-});
-
 app.listen(process.env.PORT, () => {
   console.log("Server Listened");
 });
