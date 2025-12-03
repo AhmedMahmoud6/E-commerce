@@ -1,3 +1,5 @@
+const { handleError } = require("../responses/errors");
+const { handleJSON } = require("../responses/success");
 const User = require("../model/users");
 const jwt = require("jsonwebtoken");
 
@@ -5,11 +7,8 @@ const getProfile = async (req, res) => {
   try {
     const authHeader = req.headers["authorization"];
 
-    if (!authHeader) {
-      return res
-        .status(401)
-        .json({ message: "Authorization token is missing" });
-    }
+    if (!authHeader)
+      return handleError(res, 401, "Authorization token is missing");
 
     const decoded = jwt.verify(authHeader, process.env.JWT_SECRET);
     const profileId = decoded.userId;
@@ -18,23 +17,19 @@ const getProfile = async (req, res) => {
     console.log("Profile: ", profile);
 
     if (!profile) {
-      return res.status(404).json({ message: "Profile not found" });
+      return handleError(res, 404, "Profile not found");
     }
-    const { username, email, address, role, created_at } = profile;
+    const { username, email, address, role, profile_url, created_at } = profile;
 
-    return res.status(200).json({
-      username,
-      email,
-      address,
-      role,
-      created_at,
-    });
+    return handleJSON(
+      res,
+      200,
+      { username, email, address, role, profile_url, created_at },
+      "profile loaded"
+    );
   } catch (err) {
     console.error("Failed to load profile:", err);
-    return res.status(500).json({
-      message: "Failed to load profile",
-      error: err.message || err.toString(),
-    });
+    return handleError(res, 500, "Failed to load profile");
   }
 };
 
@@ -43,25 +38,26 @@ const getUserProfile = async (req, res) => {
     const userId = req.params.id;
     const profile = await User.findById(userId);
 
-    if (!profile) {
-      return res.status(404).json({ message: "Profile not found" });
-    }
+    if (!profile) return handleError(res, 404, "Profile not found");
 
-    const { username, email, address, role, created_at } = profile;
+    const { username, email, address, role, profile_url, created_at } = profile;
 
-    return res.status(200).json({
-      username,
-      email,
-      address,
-      role,
-      created_at,
-    });
+    return handleJSON(
+      res,
+      200,
+      {
+        username,
+        email,
+        address,
+        role,
+        profile_url,
+        created_at,
+      },
+      "profile loaded"
+    );
   } catch (err) {
     console.error("Failed to load profile:", err);
-    return res.status(500).json({
-      message: "Failed to load profile",
-      error: err.message || err.toString(),
-    });
+    return handleError(res, 500, "Failed to load profile");
   }
 };
 
