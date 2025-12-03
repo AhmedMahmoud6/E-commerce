@@ -69,6 +69,10 @@ const getProducts = async (req, res) => {
 
     const totalPages = Math.ceil(totalProducts / limitResults);
 
+    console.log(pageNumber);
+
+    if (products.length === 0) return handleError(res, 404, "No results found");
+
     if (pageNumber < 1 || pageNumber > totalPages)
       return handleError(
         res,
