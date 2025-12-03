@@ -9,7 +9,14 @@ const addProduct = async (req, res) => {
     const existingProduct = await Product.findOne({ name });
 
     const authHeader = req.headers["authorization"];
-    const decoded = jwt.decode(authHeader);
+
+    if (!authHeader) {
+      return res
+        .status(401)
+        .json({ message: "Authorization token is missing" });
+    }
+
+    const decoded = jwt.verify(authHeader, process.env.JWT_SECRET);
     const currentMerchantId = decoded.userId;
 
     const user = await User.findById(currentMerchantId);
