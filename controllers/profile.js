@@ -65,8 +65,12 @@ const getUserProfile = async (req, res) => {
 
 const getAllUsersProfile = async (req, res) => {
   try {
+    console.log("testtsetsetsetsetestsetseatseatasedfsdfkgkdhjsrtjkhdrsk");
+
     const user_id = verifyJWT(req, res);
     const user = await User.findById(user_id);
+    console.log("user id", user_id);
+    console.log("user", user);
 
     if (user.role !== "admin")
       return handleError(

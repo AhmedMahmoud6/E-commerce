@@ -8,8 +8,8 @@ const {
 const router = express.Router();
 
 router.get("/", getProfile);
-router.get("/:id", getUserProfile);
 router.get("/admin", getAllUsersProfile);
+router.get("/:id", getUserProfile);
 router.delete("/:id/admin", deleteUser);
 
 module.exports = router;
