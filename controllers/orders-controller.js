@@ -134,6 +134,15 @@ const getAllOrders = async (req, res) => {
     const decoded = jwt.verify(authHeader, process.env.JWT_SECRET);
     const user_id = decoded.userId;
 
+    const user = await User.findById(user_id);
+
+    if (user.role !== "member")
+      return handleError(
+        res,
+        403,
+        "Access Denied: You do not have permission to perform this action"
+      );
+
     const allOrders = await Order.find({
       user_id: user_id,
     });
