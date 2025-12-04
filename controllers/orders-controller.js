@@ -3,7 +3,11 @@ const User = require("../model/users");
 const Order = require("../model/orders");
 const { handleError } = require("../responses/errors");
 const jwt = require("jsonwebtoken");
-const { handleSingleJSON } = require("../responses/success");
+const {
+  handleSingleJSON,
+  handleJSON,
+  handlePaginated,
+} = require("../responses/success");
 
 const getProductsByIds = async (productsIds) => {
   try {
@@ -33,6 +37,10 @@ const addOrder = async (req, res) => {
 
   const decoded = jwt.verify(authHeader, process.env.JWT_SECRET);
   const user_id = decoded.userId;
+  const user = await User.findById(user_id);
+
+  if (user.role !== "member")
+    return handleError(res, 403, "User is not a member to order");
 
   if (!product_id || product_id.length === 0)
     return handleError(res, 400, "No product IDs provided");
@@ -116,4 +124,89 @@ const getOrder = async (req, res) => {
   }
 };
 
-module.exports = { addOrder, getOrder };
+const getAllOrders = async (req, res) => {
+  try {
+    const authHeader = req.headers["authorization"];
+
+    if (!authHeader)
+      return handleError(res, 401, "Authorization token is missing");
+
+    const decoded = jwt.verify(authHeader, process.env.JWT_SECRET);
+    const user_id = decoded.userId;
+
+    const allOrders = await Order.find({
+      user_id: user_id,
+    });
+
+    if (!allOrders)
+      return handleError(res, 200, "You have not placed any orders yet.");
+
+    return handleJSON(res, 200, allOrders, "Orders found");
+  } catch (err) {
+    console.error("Failed to fetch orders", err);
+    return handleError(res, 500, "Internal Server Error");
+  }
+};
+
+const getAllOrdersAdmin = async (req, res) => {
+  try {
+    const authHeader = req.headers["authorization"];
+
+    if (!authHeader)
+      return handleError(res, 401, "Authorization token is missing");
+
+    const decoded = jwt.verify(authHeader, process.env.JWT_SECRET);
+    const user_id = decoded.userId;
+    const user = await User.findById(user_id);
+
+    if (user.role !== "admin")
+      return handleError(
+        res,
+        403,
+        "Access Denied: You do not have permission to perform this action"
+      );
+
+    const { search, limit, page } = req.query;
+
+    const limitResults = Math.abs(parseInt(limit)) || 10;
+    const pageNumber = Math.abs(parseInt(page)) || 1;
+
+    const skip = (pageNumber - 1) * limitResults;
+
+    const searchQuery = search ? { user_id: search } : {};
+
+    const orders = await Order.find(searchQuery).skip(skip).limit(limitResults);
+
+    const totalOrders = await Order.countDocuments(searchQuery);
+
+    const totalPages = Math.ceil(totalOrders / limitResults);
+
+    console.log(pageNumber);
+
+    if (orders.length === 0) return handleError(res, 404, "No results found");
+
+    if (pageNumber < 1 || pageNumber > totalPages)
+      return handleError(
+        res,
+        400,
+        `Page ${pageNumber} is out of range. Please select a valid page between 1 and ${totalPages}.`
+      );
+
+    if (!orders) return handleError(res, 200, "No orders found.");
+
+    return handlePaginated(
+      res,
+      200,
+      orders,
+      totalOrders,
+      totalPages,
+      pageNumber,
+      "Orders found."
+    );
+  } catch (err) {
+    console.error("Failed to fetch orders", err);
+    return handleError(res, 500, "Internal Server Error");
+  }
+};
+
+module.exports = { addOrder, getOrder, getAllOrders, getAllOrdersAdmin };
