@@ -5,15 +5,10 @@ const orderSchema = new mongoose.Schema(
     user_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
     },
     product_id: {
       type: [mongoose.Schema.Types.ObjectId],
       ref: "Product",
-      required: true,
-    },
-    image_url: {
-      type: String,
       required: true,
     },
     quantity: {
@@ -23,12 +18,7 @@ const orderSchema = new mongoose.Schema(
     },
     total_price: {
       type: mongoose.Types.Decimal128,
-      required: true,
-    },
-    status: {
-      type: String,
-      default: "pending",
-      enum: ["pending", "confirmed", "shipped", "cancelled"],
+      default: 0,
     },
     created_at: {
       type: Date,
