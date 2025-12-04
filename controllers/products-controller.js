@@ -152,7 +152,7 @@ const updateProduct = async (req, res) => {
 
     if (!product) return handleError(res, 404, "Product not found");
 
-    if (product.merchant_id !== currUserId)
+    if (product.merchant_id.toString() !== currUserId)
       return handleError(
         res,
         403,
