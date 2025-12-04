@@ -44,9 +44,21 @@ const addOrder = async (req, res) => {
 
   try {
     const products = await getProductsByIds(product_id);
+    let isError = false;
+    let errorMsg = "";
 
     if (products.length !== product_id.length)
       return handleError(res, 404, "Some products not found");
+
+    // check if there's a stock
+    products.forEach((product) => {
+      if (product.stock === 0) {
+        errorMsg = `Product out of stock: ${product.name}`;
+        isError = true;
+      }
+    });
+
+    if (isError) return handleError(res, 400, errorMsg);
 
     // update stock
     products.forEach(async (product, index) => {
@@ -58,8 +70,13 @@ const addOrder = async (req, res) => {
         } catch (err) {
           console.error("Error updating product stock:", err);
         }
-      } else throw new Error(`Insufficient stock for product: ${product.name}`);
+      } else {
+        errorMsg = `Insufficient stock for product: ${product.name}`;
+        isError = true;
+      }
     });
+
+    if (isError) return handleError(res, 400, errorMsg);
 
     // update total price
     let totalPrice = 0;
