@@ -149,6 +149,8 @@ const deleteUser = async (req, res) => {
       session
     );
 
+    if (!selectedUser) return handleError(res, 404, "User not found.");
+
     await session.commitTransaction();
     session.endSession();
 
