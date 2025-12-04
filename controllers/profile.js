@@ -21,14 +21,8 @@ const getProfile = async (req, res) => {
     if (!profile) {
       return handleError(res, 404, "Profile not found");
     }
-    const { username, email, address, role, profile_url, created_at } = profile;
 
-    return handleSingleJSON(
-      res,
-      200,
-      { username, email, address, role, profile_url, created_at },
-      "profile loaded"
-    );
+    return handleSingleJSON(res, 200, profile, "profile loaded");
   } catch (err) {
     console.error("Failed to load profile:", err);
     return handleError(res, 500, "Failed to load profile");
