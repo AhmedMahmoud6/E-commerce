@@ -137,6 +137,8 @@ const deleteUser = async (req, res) => {
 
     const selectedUserId = req.params.id;
 
+    if (!selectedUserId) return handleError(res, 400, "User id is missing");
+
     await Product.deleteMany({ merchant_id: selectedUserId }).session(session);
     await Order.deleteMany({ user_id: selectedUserId }).session(session);
     const selectedUser = await User.findByIdAndDelete(selectedUserId).session(

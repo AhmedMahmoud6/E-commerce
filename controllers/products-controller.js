@@ -2,7 +2,12 @@ const Product = require("../model/products");
 const User = require("../model/users");
 const jwt = require("jsonwebtoken");
 const { handleError } = require("../responses/errors");
-const { handlePaginated, handleSingleJSON } = require("../responses/success");
+const {
+  handlePaginated,
+  handleSingleJSON,
+  handleJSON,
+} = require("../responses/success");
+const { verifyJWT } = require("../utils/repeated-functions");
 
 const addProduct = async (req, res) => {
   try {
@@ -92,6 +97,70 @@ const getProducts = async (req, res) => {
   } catch (err) {
     console.error("Error fetching products:", err);
     return handleError(res, 500, "Error fetching products");
+  }
+};
+
+const getMyProducts = async (req, res) => {
+  try {
+    const { search, limit, page } = req.query;
+
+    const limitResults = Math.abs(parseInt(limit)) || 10;
+    const pageNumber = Math.abs(parseInt(page)) || 1;
+
+    const skip = (pageNumber - 1) * limitResults;
+
+    const user_id = verifyJWT(req, res);
+
+    const searchQuery = search
+      ? { name: { $regex: `^${search}`, $options: "i" } }
+      : {};
+
+    const products = await Product.find({
+      merchant_id: user_id,
+      ...searchQuery,
+    })
+      .skip(skip)
+      .limit(limitResults);
+
+    const totalProducts = await Product.countDocuments({
+      merchant_id: user_id,
+      ...searchQuery,
+    });
+
+    const totalPages = Math.ceil(totalProducts / limitResults);
+
+    console.log(pageNumber);
+
+    if (products.length === 0) return handleError(res, 404, "No results found");
+
+    if (pageNumber < 1 || pageNumber > totalPages)
+      return handleError(
+        res,
+        400,
+        `Page ${pageNumber} is out of range. Please select a valid page between 1 and ${totalPages}.`
+      );
+
+    const user = await User.findById(user_id);
+
+    if (user.role !== "merchant")
+      return handleError(
+        res,
+        403,
+        "Access Denied: You do not have permission to perform this action"
+      );
+
+    return handlePaginated(
+      res,
+      200,
+      products,
+      totalProducts,
+      totalPages,
+      pageNumber,
+      "Fetched products successfully"
+    );
+  } catch (err) {
+    console.error("Failed to fetch products", err);
+    return handleError(res, 500, "Internal server error");
   }
 };
 
@@ -241,4 +310,5 @@ module.exports = {
   getSelectedProduct,
   updateProduct,
   deleteProduct,
+  getMyProducts,
 };
