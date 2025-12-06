@@ -91,7 +91,7 @@ const deleteWishlistProduct = async (req, res) => {
       `${deletedProduct.name} deleted successfully`
     );
   } catch (err) {
-    console.error("Failed to delete wishlist", err);
+    console.error("Failed to delete Wishlist", err);
     return handleError(res, 500, "Internal Server Error");
   }
 };
