@@ -37,6 +37,8 @@ const addOrder = async (req, res) => {
 
   const decoded = jwt.verify(authHeader, process.env.JWT_SECRET);
   const user_id = decoded.userId;
+
+  if (!user_id) return handleError(res, 400, "No user id provided");
   const user = await User.findById(user_id);
 
   if (!user) return handleError(res, 404, "User not found");
@@ -49,8 +51,6 @@ const addOrder = async (req, res) => {
 
   if (!quantity || quantity.length === 0)
     return handleError(res, 400, "No quantities provided");
-
-  if (!user_id) return handleError(res, 400, "No user id provided");
 
   try {
     const products = await getProductsByIds(product_id);
