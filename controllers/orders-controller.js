@@ -39,6 +39,8 @@ const addOrder = async (req, res) => {
   const user_id = decoded.userId;
   const user = await User.findById(user_id);
 
+  if (!user) return handleError(res, 404, "User not found");
+
   if (user.role !== "member")
     return handleError(res, 403, "User is not a member to order");
 
@@ -182,9 +184,22 @@ const getAllOrdersAdmin = async (req, res) => {
 
     const skip = (pageNumber - 1) * limitResults;
 
-    const searchQuery = search ? { user_id: search } : {};
+    const products = await Product.find({
+      name: { $regex: search, $options: "i" },
+    }).select("_id");
 
-    const orders = await Order.find(searchQuery).skip(skip).limit(limitResults);
+    if (products.length === 0) {
+      return handleError(res, 404, "No products found matching the search");
+    }
+
+    const productIds = products.map((product) => product._id);
+
+    const searchQuery = search ? { product_id: { $in: productIds } } : {};
+
+    const orders = await Order.find(searchQuery)
+      .populate("product_id")
+      .skip(skip)
+      .limit(limitResults);
 
     const totalOrders = await Order.countDocuments(searchQuery);
 

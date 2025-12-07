@@ -168,10 +168,12 @@ const getSelectedProduct = async (req, res) => {
   try {
     const productId = req.params.id;
     const product = await Product.findById(productId);
-
-    const productMerchant = await User.findById(product.merchant_id);
+    console.log("Product ID: ", productId);
+    console.log("Product: ", product);
 
     if (!product) return handleError(res, 404, "Product not found");
+
+    const productMerchant = await User.findById(product.merchant_id);
     if (!productMerchant)
       return handleError(res, 404, "Product merchant not found");
 
