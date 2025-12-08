@@ -4,7 +4,11 @@ const {
   deleteCartProduct,
   getCart,
 } = require("../controllers/carts-controller");
+const auth = require("../middleware/auth");
 const router = express.Router();
+
+// All cart routes require authentication
+router.use(auth);
 
 router.post("/", addToCart);
 router.get("/", getCart);

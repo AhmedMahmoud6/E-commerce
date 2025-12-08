@@ -5,11 +5,12 @@ const {
   getAllUsersProfile,
   deleteUser,
 } = require("../controllers/profile");
+const auth = require("../middleware/auth");
 const router = express.Router();
 
-router.get("/", getProfile);
-router.get("/admin", getAllUsersProfile);
+router.get("/", auth, getProfile);
+router.get("/admin", auth, getAllUsersProfile);
 router.get("/:id", getUserProfile);
-router.delete("/:id/admin", deleteUser);
+router.delete("/:id/admin", auth, deleteUser);
 
 module.exports = router;

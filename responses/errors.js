@@ -14,7 +14,9 @@ class ServerErrorResponse {
 
 const handleError = (res, statusCode, message, errorDetails = null) => {
   const error = new ServerErrorResponse(message, errorDetails);
-  return res.status(statusCode).json(error.formatError(statusCode));
+  const payload = error.formatError(statusCode);
+  if (errorDetails) payload.error = errorDetails;
+  return res.status(statusCode).json(payload);
 };
 
 module.exports = { handleError };

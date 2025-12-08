@@ -1,12 +1,7 @@
 const Product = require("../model/products");
 const User = require("../model/users");
-const jwt = require("jsonwebtoken");
 const { handleError } = require("../responses/errors");
-const {
-  handlePaginated,
-  handleSingleJSON,
-  handleJSON,
-} = require("../responses/success");
+const { handlePaginated, handleSingleJSON } = require("../responses/success");
 const { verifyJWT } = require("../utils/repeated-functions");
 
 const addProduct = async (req, res) => {
@@ -15,13 +10,8 @@ const addProduct = async (req, res) => {
 
     const existingProduct = await Product.findOne({ name });
 
-    const authHeader = req.headers["authorization"];
-
-    if (!authHeader)
-      return handleError(res, 401, "Authorization token is missing");
-
-    const decoded = jwt.verify(authHeader, process.env.JWT_SECRET);
-    const currentMerchantId = decoded.userId;
+    const currentMerchantId = req.userId || verifyJWT(req, res);
+    if (!currentMerchantId) return;
 
     const user = await User.findById(currentMerchantId);
     console.log("Found user:", user);
@@ -109,7 +99,8 @@ const getMyProducts = async (req, res) => {
 
     const skip = (pageNumber - 1) * limitResults;
 
-    const user_id = verifyJWT(req, res);
+    const user_id = req.userId || verifyJWT(req, res);
+    if (!user_id) return;
 
     const searchQuery = search
       ? { name: { $regex: `^${search}`, $options: "i" } }
@@ -204,13 +195,8 @@ const getSelectedProduct = async (req, res) => {
 
 const updateProduct = async (req, res) => {
   try {
-    const authHeader = req.headers["authorization"];
-
-    if (!authHeader)
-      return handleError(res, 401, "Authorization token is missing");
-
-    const decoded = jwt.verify(authHeader, process.env.JWT_SECRET);
-    const currUserId = decoded.userId;
+    const currUserId = req.userId || verifyJWT(req, res);
+    if (!currUserId) return;
 
     const productId = req.params.id;
 
@@ -251,7 +237,7 @@ const updateProduct = async (req, res) => {
     return handleSingleJSON(
       res,
       200,
-      updateProduct,
+      updatedProduct,
       "Product updated successfully"
     );
   } catch (err) {
@@ -262,13 +248,8 @@ const updateProduct = async (req, res) => {
 
 const deleteProduct = async (req, res) => {
   try {
-    const authHeader = req.headers["authorization"];
-
-    if (!authHeader)
-      return handleError(res, 401, "Authorization token is missing");
-
-    const decoded = jwt.verify(authHeader, process.env.JWT_SECRET);
-    const currUserId = decoded.userId;
+    const currUserId = req.userId || verifyJWT(req, res);
+    if (!currUserId) return;
 
     const currUser = await User.findById(currUserId);
 

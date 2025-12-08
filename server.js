@@ -20,6 +20,8 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/wishlist", wishlistRoutes);
 
-app.listen(process.env.PORT, () => {
-  console.log("Server Listened");
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, () => {
+  console.log(`Server listening on port ${PORT}`);
 });

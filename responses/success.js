@@ -17,11 +17,9 @@ class JSONResponse {
     this.items = items;
     this.message = message;
   }
-
   returnItems() {
     return {
       items: this.items,
-      totalItems: this.totalItems,
       message: this.message,
     };
   }

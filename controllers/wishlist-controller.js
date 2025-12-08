@@ -5,21 +5,26 @@ const Wishlist = require("../model/wishlist");
 
 const addToWishlist = async (req, res) => {
   try {
-    const user_id = verifyJWT(req, res);
+    const user_id = req.userId || verifyJWT(req, res);
+    if (!user_id) return;
 
     const { product_id } = req.body;
 
-    if (!product_id || product_id.length === 0)
-      return handleError(res, 400, "Products array is empty");
+    if (!product_id) return handleError(res, 400, "Product id is missing");
 
-    const userWishlist = await Wishlist.findOne({ user_id });
+    let userWishlist = await Wishlist.findOne({ user_id });
+    if (!userWishlist) {
+      userWishlist = await Wishlist.create({ user_id, product_id: [] });
+    }
 
-    const productIndex = userWishlist.product_id.toString().indexOf(product_id);
+    const productIndex = userWishlist.product_id.findIndex(
+      (p) => p.toString() === product_id
+    );
     let message = "";
 
-    if (productIndex !== -1) message = "Product is already in wishlist";
-
-    if (productIndex === -1) {
+    if (productIndex !== -1) {
+      message = "Product is already in wishlist";
+    } else {
       userWishlist.product_id.push(product_id);
       message = "Product added to wishlist successfully";
     }
@@ -35,7 +40,8 @@ const addToWishlist = async (req, res) => {
 
 const getWishlist = async (req, res) => {
   try {
-    const user_id = verifyJWT(req, res);
+    const user_id = req.userId || verifyJWT(req, res);
+    if (!user_id) return;
 
     const userWishlist = await Wishlist.findOne({ user_id }).populate(
       "product_id"
@@ -63,11 +69,15 @@ const deleteWishlistProduct = async (req, res) => {
 
     if (!productId) return handleError(res, 400, "Product id is missing");
 
-    const user_id = verifyJWT(req, res);
+    const user_id = req.userId || verifyJWT(req, res);
+    if (!user_id) return;
 
     const userWishlist = await Wishlist.findOne({ user_id }).populate(
       "product_id"
     );
+
+    if (!userWishlist)
+      return handleError(res, 404, "Wishlist not found for current user");
 
     const productIndex = userWishlist.product_id.findIndex(
       (product) => product._id.toString() === productId
@@ -82,7 +92,7 @@ const deleteWishlistProduct = async (req, res) => {
 
     const deletedProduct = userWishlist.product_id.splice(productIndex, 1)[0];
 
-    userWishlist.save();
+    await userWishlist.save();
 
     return handleSingleJSON(
       res,

@@ -2,7 +2,7 @@ const Product = require("../model/products");
 const User = require("../model/users");
 const Order = require("../model/orders");
 const { handleError } = require("../responses/errors");
-const jwt = require("jsonwebtoken");
+const { verifyJWT } = require("../utils/repeated-functions");
 const {
   handleSingleJSON,
   handleJSON,
@@ -11,11 +11,8 @@ const {
 
 const getProductsByIds = async (productsIds) => {
   try {
-    const products = Product.find({
-      _id: { $in: productsIds },
-    });
-
-    if (products.length === 0) {
+    const products = await Product.find({ _id: { $in: productsIds } });
+    if (!products || products.length === 0) {
       console.log("No products found");
       return [];
     }
@@ -23,22 +20,15 @@ const getProductsByIds = async (productsIds) => {
     return products;
   } catch (err) {
     console.error("Error fetching products:", err);
-    return handleError(res, 500, "Internal Server Error");
+    throw err;
   }
 };
 
 const addOrder = async (req, res) => {
   const { product_id, quantity } = req.body;
 
-  const authHeader = req.headers["authorization"];
-
-  if (!authHeader)
-    return handleError(res, 401, "Authorization token is missing");
-
-  const decoded = jwt.verify(authHeader, process.env.JWT_SECRET);
-  const user_id = decoded.userId;
-
-  if (!user_id) return handleError(res, 400, "No user id provided");
+  const user_id = req.userId || verifyJWT(req, res);
+  if (!user_id) return;
   const user = await User.findById(user_id);
 
   if (!user) return handleError(res, 404, "User not found");
@@ -70,11 +60,11 @@ const addOrder = async (req, res) => {
 
     if (isError) return handleError(res, 400, errorMsg);
 
-    // update stock
-    products.forEach(async (product, index) => {
+    // update stock (sequentially to ensure saves complete)
+    for (let index = 0; index < products.length; index++) {
+      const product = products[index];
       if (product.stock >= quantity[index]) {
         product.stock -= quantity[index];
-
         try {
           await product.save();
         } catch (err) {
@@ -84,7 +74,7 @@ const addOrder = async (req, res) => {
         errorMsg = `Insufficient stock for product: ${product.name}`;
         isError = true;
       }
-    });
+    }
 
     if (isError) return handleError(res, 400, errorMsg);
 
@@ -128,14 +118,8 @@ const getOrder = async (req, res) => {
 
 const getAllOrders = async (req, res) => {
   try {
-    const authHeader = req.headers["authorization"];
-
-    if (!authHeader)
-      return handleError(res, 401, "Authorization token is missing");
-
-    const decoded = jwt.verify(authHeader, process.env.JWT_SECRET);
-    const user_id = decoded.userId;
-
+    const user_id = req.userId || verifyJWT(req, res);
+    if (!user_id) return;
     const user = await User.findById(user_id);
 
     if (user.role !== "member")
@@ -161,13 +145,8 @@ const getAllOrders = async (req, res) => {
 
 const getAllOrdersAdmin = async (req, res) => {
   try {
-    const authHeader = req.headers["authorization"];
-
-    if (!authHeader)
-      return handleError(res, 401, "Authorization token is missing");
-
-    const decoded = jwt.verify(authHeader, process.env.JWT_SECRET);
-    const user_id = decoded.userId;
+    const user_id = req.userId || verifyJWT(req, res);
+    if (!user_id) return;
     const user = await User.findById(user_id);
 
     if (user.role !== "admin")

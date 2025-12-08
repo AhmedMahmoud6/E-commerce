@@ -5,7 +5,8 @@ const Cart = require("../model/carts");
 
 const addToCart = async (req, res) => {
   try {
-    const user_id = verifyJWT(req, res);
+    const user_id = req.userId || verifyJWT(req, res);
+    if (!user_id) return;
 
     const { product_id, quantity } = req.body;
 
@@ -13,17 +14,21 @@ const addToCart = async (req, res) => {
       return handleError(res, 400, "Products array is empty");
     if (!quantity) return handleError(res, 400, "Quantity array is empty");
 
-    const userCart = await Cart.findOne({ user_id });
+    let userCart = await Cart.findOne({ user_id });
+    if (!userCart) {
+      userCart = await Cart.create({ user_id, product_id: [], quantity: [] });
+    }
 
-    const productIndex = userCart.product_id.toString().indexOf(product_id);
+    const productIndex = userCart.product_id.findIndex(
+      (p) => p.toString() === product_id
+    );
     let message = "";
 
     if (productIndex !== -1) {
-      userCart.quantity[productIndex] += quantity;
+      userCart.quantity[productIndex] =
+        (userCart.quantity[productIndex] || 0) + quantity;
       message = "Updated product quantity successfully";
-    }
-
-    if (productIndex === -1) {
+    } else {
       userCart.product_id.push(product_id);
       userCart.quantity.push(quantity);
       message = "Product added to cart successfully";
@@ -40,7 +45,8 @@ const addToCart = async (req, res) => {
 
 const getCart = async (req, res) => {
   try {
-    const user_id = verifyJWT(req, res);
+    const user_id = req.userId || verifyJWT(req, res);
+    if (!user_id) return;
 
     const userCart = await Cart.findOne({ user_id }).populate("product_id");
 
@@ -61,9 +67,13 @@ const deleteCartProduct = async (req, res) => {
 
     if (!productId) return handleError(res, 400, "Product id is missing");
 
-    const user_id = verifyJWT(req, res);
+    const user_id = req.userId || verifyJWT(req, res);
+    if (!user_id) return;
 
     const userCart = await Cart.findOne({ user_id }).populate("product_id");
+
+    if (!userCart)
+      return handleError(res, 404, "Cart not found for current user");
 
     const productIndex = userCart.product_id.findIndex(
       (product) => product._id.toString() === productId
@@ -79,7 +89,7 @@ const deleteCartProduct = async (req, res) => {
     const deletedProduct = userCart.product_id.splice(productIndex, 1)[0];
     userCart.quantity.splice(productIndex, 1)[0];
 
-    userCart.save();
+    await userCart.save();
 
     return handleSingleJSON(
       res,
