@@ -34,7 +34,7 @@ const registerUser = async (req, res) => {
       return handleError(
         res,
         422,
-        "Password must contain at least 1 uppercase, 1 lowercase, 1 number, and 1 special character"
+        "Password must contain at least 8 characters, including 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character."
       );
     }
 
