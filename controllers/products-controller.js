@@ -8,6 +8,9 @@ const addProduct = async (req, res) => {
   try {
     const { name, description, image_url, price, category, stock } = req.body;
 
+    if (!name || !description || !price || !category || !stock)
+      return handleError(res, 401, "There's a missing field");
+
     const existingProduct = await Product.findOne({ name });
 
     const currentMerchantId = req.userId || verifyJWT(req, res);
@@ -158,6 +161,8 @@ const getMyProducts = async (req, res) => {
 const getSelectedProduct = async (req, res) => {
   try {
     const productId = req.params.id;
+    if (!productId) return handleError(res, 401, "Product id missing");
+
     const product = await Product.findById(productId);
     console.log("Product ID: ", productId);
     console.log("Product: ", product);
