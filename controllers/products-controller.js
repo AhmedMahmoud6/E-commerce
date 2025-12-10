@@ -42,7 +42,7 @@ const addProduct = async (req, res) => {
     return handleSingleJSON(res, 200, newProduct, "Product added successfully");
   } catch (err) {
     console.error("Error adding product:", err);
-    return handleError(res, 500, "Error adding product");
+    return handleError(res, 500, "Error adding product.");
   }
 };
 
