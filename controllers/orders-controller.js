@@ -212,4 +212,52 @@ const getAllOrdersAdmin = async (req, res) => {
   }
 };
 
-module.exports = { addOrder, getOrder, getAllOrders, getAllOrdersAdmin };
+const getOrdersByMerchant = async (req, res) => {
+  try {
+    const user_id = req.userId || verifyJWT(req, res);
+    if (!user_id) return;
+    const user = await User.findById(user_id);
+
+    const merchantId = req.params.merchantId;
+    if (!merchantId) return handleError(res, 400, "merchant id is missing");
+
+    // Only allow admin or the merchant themself to fetch merchant orders
+    if (user.role !== "admin" && user._id.toString() !== merchantId)
+      return handleError(
+        res,
+        403,
+        "Access Denied: cannot view other merchant orders"
+      );
+
+    // Find products that belong to this merchant
+    const products = await Product.find({ merchant_id: merchantId }).select(
+      "_id"
+    );
+    if (!products || products.length === 0) {
+      return handleJSON(res, 200, [], "No orders for this merchant");
+    }
+    const productIds = products.map((p) => p._id);
+
+    // Find orders that reference any of these product ids
+    const orders = await Order.find({
+      product_id: { $in: productIds },
+    }).populate("product_id");
+
+    if (!orders || orders.length === 0) {
+      return handleJSON(res, 200, [], "No orders for this merchant");
+    }
+
+    return handleJSON(res, 200, orders, "Merchant orders found");
+  } catch (err) {
+    console.error("Failed to fetch merchant orders", err);
+    return handleError(res, 500, "Internal Server Error");
+  }
+};
+
+module.exports = {
+  addOrder,
+  getOrder,
+  getAllOrders,
+  getAllOrdersAdmin,
+  getOrdersByMerchant,
+};
