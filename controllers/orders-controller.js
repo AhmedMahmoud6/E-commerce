@@ -164,7 +164,7 @@ const getAllOrdersAdmin = async (req, res) => {
     const skip = (pageNumber - 1) * limitResults;
 
     const products = await Product.find({
-      name: { $regex: search, $options: "i" },
+      name: { $regex: search ? search.toString() : "", $options: "i" },
     }).select("_id");
 
     if (products.length === 0) {
