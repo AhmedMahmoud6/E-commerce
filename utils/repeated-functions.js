@@ -11,7 +11,7 @@ const verifyJWT = (req, res) => {
   try {
     const decoded = jwt.verify(authHeader, process.env.JWT_SECRET);
     if (!decoded || !decoded.userId) {
-      handleError(res, 401, "Invalid authorization token");
+      handleError(res, 401, "Invalid authorization token.");
       return null;
     }
 
