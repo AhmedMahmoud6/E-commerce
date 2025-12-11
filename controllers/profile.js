@@ -124,10 +124,14 @@ const getAllUsersProfile = async (req, res) => {
 };
 
 const deleteUser = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
+  // Try transactional delete first. If the Mongo deployment does not support
+  // transactions (e.g., standalone server), fall back to non-transactional
+  // sequential deletes so the admin action still succeeds.
+  let session;
   try {
+    session = await mongoose.startSession();
+    session.startTransaction();
+
     const user_id = req.userId || verifyJWT(req, res);
     if (!user_id) return;
 
@@ -177,11 +181,58 @@ const deleteUser = async (req, res) => {
       "User and related data deleted successfully"
     );
   } catch (err) {
-    await session.abortTransaction();
-    session.endSession();
+    // If transaction failed (e.g., transactions not supported), log and fall back
+    console.error(
+      "Transactional delete failed, falling back to non-transactional delete:",
+      err
+    );
+    try {
+      if (session) {
+        try {
+          await session.abortTransaction();
+        } catch (_) {}
+        session.endSession();
+      }
 
-    console.error("Error Deleting User", err);
-    return handleError(res, 500, "Failed to delete user and related data");
+      const user_id = req.userId || verifyJWT(req, res);
+      if (!user_id) return;
+
+      const user = await User.findById(user_id);
+
+      if (user.role !== "admin")
+        return handleError(
+          res,
+          403,
+          "Access Denied: You do not have permission to perform this action"
+        );
+
+      const selectedUserId = req.params.id;
+      if (!selectedUserId) return handleError(res, 400, "User id is missing");
+
+      const selectedUser = await User.findById(selectedUserId);
+      if (!selectedUser) return handleError(res, 404, "User not found.");
+
+      // Non-transactional deletes (best-effort)
+      if (selectedUser.role === "merchant") {
+        await Product.deleteMany({ merchant_id: selectedUserId });
+      }
+      if (selectedUser.role === "member") {
+        await Cart.deleteMany({ user_id: selectedUserId });
+        await Wishlist.deleteMany({ user_id: selectedUserId });
+      }
+      await Order.deleteMany({ user_id: selectedUserId });
+      await User.findByIdAndDelete(selectedUserId);
+
+      return handleSingleJSON(
+        res,
+        200,
+        selectedUser,
+        "User and related data deleted successfully (non-transactional)"
+      );
+    } catch (err2) {
+      console.error("Error Deleting User", err2);
+      return handleError(res, 500, "Failed to delete user and related data");
+    }
   }
 };
 
