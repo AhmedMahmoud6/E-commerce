@@ -38,7 +38,7 @@ app.use(
 app.use(express.json());
 
 // Explicitly respond to preflight OPTIONS requests
-app.options("*", (req, res) => {
+app.options("/*", (req, res) => {
   res.sendStatus(200);
 });
 require("dotenv").config();
