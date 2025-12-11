@@ -9,6 +9,16 @@ const cartRoutes = require("./routes/cart-route");
 const wishlistRoutes = require("./routes/wishlist-route");
 
 app.use(express.json());
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+  res.header(
+    "Access-Control-Allow-Methods",
+    "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+  );
+  res.header("Access-Control-Allow-Headers", "Content-Type, authorization");
+  if (req.method === "OPTIONS") return res.sendStatus(200);
+  next();
+});
 require("dotenv").config();
 const { connectDB } = require("./config/db");
 
