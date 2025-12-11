@@ -3,6 +3,7 @@ import '../models/order.dart';
 import '../models/product.dart';
 import '../services/order_service.dart';
 import '../services/product_service.dart';
+import '../services/cart_service.dart';
 
 class OrderProvider with ChangeNotifier {
   final OrderService _orderService = OrderService();
@@ -38,6 +39,30 @@ class OrderProvider with ChangeNotifier {
       final order = await _orderService.createOrder(newOrder);
       _orders.insert(0, order);
       _orderProducts[order.id] = orderProducts;
+      // Attempt to clear server-side cart via OrderService first
+      await _orderService.clearCart();
+      // Extra safety: ensure server-side cart is empty for the ordered items.
+      final cartService = CartService();
+      try {
+        await cartService.clearCart();
+        final fetched = await cartService.fetchCart();
+        // If any of the ordered product ids remain, remove them individually.
+        final remaining = fetched.productIds
+            .where((pid) => newOrder.productIds.contains(pid))
+            .toList();
+        if (remaining.isNotEmpty) {
+          for (final pid in remaining) {
+            try {
+              await cartService.removeFromCart(pid);
+            } catch (_) {}
+          }
+        }
+      } catch (e) {
+        // non-fatal: log and continue
+        try {
+          debugPrint('Failed to fully clear server cart after order: $e');
+        } catch (_) {}
+      }
       notifyListeners();
     } catch (e) {
       _error = 'Failed to create order: ${e.toString()}';

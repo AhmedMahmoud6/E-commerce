@@ -29,7 +29,7 @@ class CustomBottomNavigation extends StatelessWidget {
       BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
       BottomNavigationBarItem(icon: Icon(Icons.add), label: 'add Products'),
       BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: 'Orders'),
-      BottomNavigationBarItem(icon: Icon(Icons.inventory_2), label: 'prodect'),
+      BottomNavigationBarItem(icon: Icon(Icons.inventory_2), label: 'Products'),
       BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
     ];
   }

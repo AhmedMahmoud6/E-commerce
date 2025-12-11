@@ -2,6 +2,7 @@ import 'package:ecommerce_app/screens/member/products_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/wishlist_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../widgets/common/product_card.dart';
 import 'product_detail_screen.dart';
 
@@ -19,7 +20,8 @@ class _WishlistScreenState extends State<WishlistScreen> {
     super.initState();
     Future.microtask(() {
       final provider = Provider.of<WishlistProvider>(context, listen: false);
-      provider.loadWishlist();
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      provider.loadWishlist(currentUserId: auth.user?.id);
     });
   }
 
@@ -41,75 +43,78 @@ class _WishlistScreenState extends State<WishlistScreen> {
             ),
         ],
       ),
-      body: wishlistProvider.itemCount == 0
-          ? _buildEmptyWishlist(context) 
-          : RefreshIndicator(
-              onRefresh: () async {
-                await wishlistProvider.loadWishlist();
-              },
-              child: GridView.builder(
-                padding: const EdgeInsets.all(16),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 0.7,
-                ),
-                itemCount: wishlistProvider.wishlistProducts.length,
-                itemBuilder: (context, index) {
-                  final product = wishlistProvider.wishlistProducts[index];
-                  return Stack(
-                    children: [
-                      ProductCard(
-                        product: product,
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  ProductDetailScreen(product: product),
-                            ),
-                          );
-                        },
-                      ),
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black12,
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: IconButton(
-                            icon: const Icon(
-                              Icons.favorite,
-                              color: Colors.red,
-                              size: 20,
-                            ),
-                            onPressed: () {
-                              wishlistProvider.removeFromWishlist(product.id);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Removed from wishlist'),
-                                  backgroundColor: Colors.orange,
+      body: wishlistProvider.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : (wishlistProvider.wishlistProducts.isEmpty
+              ? _buildEmptyWishlist(context)
+              : RefreshIndicator(
+                  onRefresh: () async {
+                    final auth = Provider.of<AuthProvider>(context, listen: false);
+                    await wishlistProvider.loadWishlist(currentUserId: auth.user?.id);
+                  },
+                  child: GridView.builder(
+                    padding: const EdgeInsets.all(16),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: 0.7,
+                    ),
+                    itemCount: wishlistProvider.wishlistProducts.length,
+                    itemBuilder: (context, index) {
+                      final product = wishlistProvider.wishlistProducts[index];
+                      return Stack(
+                        children: [
+                          ProductCard(
+                            product: product,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      ProductDetailScreen(product: product),
                                 ),
                               );
                             },
                           ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black12,
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: IconButton(
+                                icon: const Icon(
+                                  Icons.favorite,
+                                  color: Colors.red,
+                                  size: 20,
+                                ),
+                                onPressed: () async {
+                                  await wishlistProvider.removeFromWishlist(product.id);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Removed from wishlist'),
+                                      backgroundColor: Colors.orange,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                )),
     );
   }
 
@@ -181,8 +186,4 @@ class _WishlistScreenState extends State<WishlistScreen> {
     );
   }
 
-  String _formatDate(DateTime? date) {
-    if (date == null) return 'N/A';
-    return '${date.day}/${date.month}/${date.year}';
-  }
 }

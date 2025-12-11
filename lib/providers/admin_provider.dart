@@ -70,7 +70,7 @@ class AdminProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      _allOrders = await _orderService.getOrders();
+      _allOrders = await _orderService.getAllOrdersAdmin();
       if (_allProducts.isEmpty) {
         _allProducts = await _productService.getProducts(limit: 1000);
       }
@@ -83,8 +83,6 @@ class AdminProvider with ChangeNotifier {
       notifyListeners();
     }
   }
-
-
 
   Future<void> deleteUser(String id) async {
     try {
@@ -133,7 +131,9 @@ class AdminProvider with ChangeNotifier {
 
   Future<void> _computeMissingOrderTotalsAsync() async {
     if (_allOrders.isEmpty) return;
-    final priceMap = <String, double>{ for (final p in _allProducts) p.id: p.price };
+    final priceMap = <String, double>{
+      for (final p in _allProducts) p.id: p.price,
+    };
     for (var i = 0; i < _allOrders.length; i++) {
       final order = _allOrders[i];
       if (order.totalPrice > 0) continue;

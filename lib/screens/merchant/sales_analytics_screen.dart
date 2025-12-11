@@ -34,36 +34,40 @@ class _SalesAnalyticsScreenState extends State<SalesAnalyticsScreen> {
   }
 
   Map<String, dynamic> _getAnalyticsData() {
-    final merchantProvider = Provider.of<MerchantProvider>(
-      context,
-      listen: false,
-    );
+    final provider = Provider.of<MerchantProvider>(context, listen: false);
+    final orders = provider.merchantOrders;
+    final products = provider.merchantProducts;
+    final productMap = {for (final p in products) p.id: p};
 
-    if (_selectedPeriod == 'monthly') {
-      return {
-        'totalSales': 12540.00,
-        'totalOrders': 89,
-        'averageOrderValue': 140.90,
-        'topProducts': [
-          {'name': 'Wireless Headphones', 'sales': 4520.00},
-          {'name': 'Smart Watch', 'sales': 3890.00},
-          {'name': 'Running Shoes', 'sales': 2150.00},
-        ],
-        'salesGrowth': 15.2,
-      };
-    } else {
-      return {
-        'totalSales': 89450.00,
-        'totalOrders': 645,
-        'averageOrderValue': 138.68,
-        'topProducts': [
-          {'name': 'Wireless Headphones', 'sales': 25420.00},
-          {'name': 'Smart Watch', 'sales': 19850.00},
-          {'name': 'Running Shoes', 'sales': 12480.00},
-        ],
-        'salesGrowth': 22.8,
-      };
+    double totalSales = 0.0;
+    for (final o in orders) {
+      totalSales += o.totalPrice;
     }
+    final totalOrders = orders.length;
+    final avgOrderValue = totalOrders > 0 ? totalSales / totalOrders : 0.0;
+
+    final salesByProduct = <String, double>{};
+    for (final o in orders) {
+      for (int i = 0; i < o.productIds.length; i++) {
+        final pid = o.productIds[i];
+        final qty = (i < o.quantities.length) ? o.quantities[i] : 1;
+        final price = productMap[pid]?.price ?? 0.0;
+        salesByProduct[pid] = (salesByProduct[pid] ?? 0.0) + price * qty;
+      }
+    }
+
+    final topProducts = salesByProduct.entries
+        .map((e) => {'name': productMap[e.key]?.name ?? e.key, 'sales': e.value})
+        .toList()
+      ..sort((a, b) => (b['sales'] as double).compareTo(a['sales'] as double));
+
+    return {
+      'totalSales': totalSales,
+      'totalOrders': totalOrders,
+      'averageOrderValue': avgOrderValue,
+      'topProducts': topProducts.take(5).toList(),
+      'salesGrowth': 0.0,
+    };
   }
 
   @override

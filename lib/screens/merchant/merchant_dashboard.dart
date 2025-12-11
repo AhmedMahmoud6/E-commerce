@@ -392,13 +392,13 @@ class _MerchantDashboardState extends State<MerchantDashboard> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.orange.withOpacity(0.1),
+                          color: _getStatusColor(order.status).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.orange),
+                          border: Border.all(color: _getStatusColor(order.status)),
                         ),
                         child: Text(
-                          'Pending',
-                          style: TextStyle(color: Colors.orange),
+                          order.status,
+                          style: TextStyle(color: _getStatusColor(order.status)),
                         ),
                       ),
                     ),

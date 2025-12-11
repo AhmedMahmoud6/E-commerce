@@ -19,7 +19,20 @@ class MerchantProvider with ChangeNotifier {
   String get error => _error;
 
   double get totalSales {
-    return _merchantOrders.fold(0.0, (sum, order) => sum + order.totalPrice);
+    // Compute total sales for this merchant from actual ordered products
+    // (order.totalPrice may include items from other merchants).
+    if (_merchantProducts.isEmpty || _merchantOrders.isEmpty) return 0.0;
+    final priceById = {for (var p in _merchantProducts) p.id: p.price};
+    double total = 0.0;
+    for (final order in _merchantOrders) {
+      for (int i = 0; i < order.productIds.length; i++) {
+        final pid = order.productIds[i];
+        final qty = (i < order.quantities.length) ? order.quantities[i] : 1;
+        final price = priceById[pid];
+        if (price != null) total += price * qty;
+      }
+    }
+    return total;
   }
 
   int get totalOrders => _merchantOrders.length;
@@ -32,7 +45,7 @@ class MerchantProvider with ChangeNotifier {
 
     try {
       final allProducts = await _productService.getProducts();
-        _merchantProducts = allProducts
+      _merchantProducts = allProducts
           .where((product) => product.merchantId == merchantId)
           .toList();
       _error = '';
@@ -50,20 +63,48 @@ class MerchantProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      await Future.delayed(const Duration(seconds: 1));
+      // Load merchant products first (used for filtering and sales calc)
+      List<Product> products = [];
+      try {
+        final allProducts = await _productService.getProducts();
+        products = allProducts
+            .where((p) => p.merchantId == merchantId)
+            .toList();
+        _merchantProducts = products;
+      } catch (e) {
+        debugPrint('Failed to load merchant products while loading orders: $e');
+      }
 
-      _merchantOrders = [
-        Order(
-          id: '101',
-          userId: '1',
-          productIds: ['1'],
-          quantities: [2],
-          totalPrice: 199.98,
-          status: 'delivered',
-          createdAt: DateTime.now().subtract(const Duration(days: 2)),
-          updatedAt: DateTime.now().subtract(const Duration(days: 1)),
-        ),
-      ];
+      // Prefer the merchant-specific endpoint we just added.
+      List<Order> allOrders = [];
+      try {
+        allOrders = await _orderService.getOrdersByMerchant(merchantId);
+      } catch (_) {
+        // fall back to other endpoints if merchant endpoint unavailable
+        try {
+          allOrders = await _orderService.getAllOrdersAdmin();
+        } catch (_) {}
+        if (allOrders.isEmpty) {
+          try {
+            allOrders = await _orderService.getOrders();
+          } catch (_) {}
+        }
+        if (allOrders.isEmpty) {
+          try {
+            allOrders = await _orderService.getUserOrders();
+          } catch (_) {}
+        }
+      }
+
+      final merchantProductIds = products.map((p) => p.id).toSet();
+      _merchantOrders = allOrders
+          .where(
+            (o) => o.productIds.any((pid) => merchantProductIds.contains(pid)),
+          )
+          .toList();
+      debugPrint(
+        'Merchant orders loaded: ${_merchantOrders.length} for merchant $merchantId',
+      );
       _error = '';
     } catch (e) {
       _error = 'Failed to load merchant orders: ${e.toString()}';
@@ -130,20 +171,10 @@ class MerchantProvider with ChangeNotifier {
 
   Future<void> updateOrderStatus(String orderId, String status) async {
     try {
+      final updated = await _orderService.updateOrderStatus(orderId, status);
       final index = _merchantOrders.indexWhere((order) => order.id == orderId);
       if (index != -1) {
-        final order = _merchantOrders[index];
-        final updatedOrder = Order(
-          id: order.id,
-          userId: order.userId,
-          productIds: order.productIds,
-          quantities: order.quantities,
-          totalPrice: order.totalPrice,
-          status: status,
-          createdAt: order.createdAt,
-          updatedAt: DateTime.now(),
-        );
-        _merchantOrders[index] = updatedOrder;
+        _merchantOrders[index] = updated;
         notifyListeners();
       }
     } catch (e) {

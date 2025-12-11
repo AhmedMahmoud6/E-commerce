@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/order.dart';
-import '../../models/product.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/order_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/cart_service.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -62,53 +62,38 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     await Future.delayed(const Duration(seconds: 2));
 
-    orderProvider.addOrder(newOrder, orderProducts);
+    await orderProvider.addOrder(newOrder, orderProducts);
 
-    cartProvider.clearCart();
+    // Ensure server-side cart is cleared and local cart is refreshed.
+    if (orderProvider.error.isEmpty) {
+      try {
+        await CartService().clearCart();
+      } catch (e) {
+        // ignore: avoid_print
+        debugPrint('Failed to clear server cart after order: $e');
+      }
+      await cartProvider.clearCart();
+      await cartProvider.loadCart();
+    } else {
+      // If order creation failed, do not clear cart; show error later.
+      debugPrint('Order creation reported error: ${orderProvider.error}');
+    }
 
     setState(() {
       _isProcessing = false;
     });
 
-    _showOrderConfirmation(context, newOrder);
+    // Show a brief confirmation and navigate back to the home screen.
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Order placed successfully')),
+      );
+    } catch (_) {}
+    Navigator.popUntil(context, (route) => route.isFirst);
   }
 
-  void _showOrderConfirmation(BuildContext context, Order order) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Order Placed Successfully!'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Thank you for your order!'),
-            const SizedBox(height: 8),
-            Text('Order ID: #${order.id}'),
-            const SizedBox(height: 8),
-            Text('Total: \$${order.totalPrice.toStringAsFixed(2)}'),
-            const SizedBox(height: 8),
-            Text('Shipping to: ${_addressController.text}'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.popUntil(context, (route) => route.isFirst);
-            },
-            child: const Text('Back to Home'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            child: const Text('View Orders'),
-          ),
-        ],
-      ),
-    );
-  }
+  // Order confirmation dialog removed — navigation now happens immediately
+  // after placing the order (SnackBar + popUntil home).
 
   @override
   Widget build(BuildContext context) {
@@ -162,8 +147,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
 
                     const SizedBox(height: 12),
-
-
 
                     TextFormField(
                       controller: _addressController,
@@ -250,14 +233,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
                             _buildSummaryRow(
                               'Tax',
-                              '\$${(cartProvider.totalPrice * 0.1).toStringAsFixed(2)}',
+                              '\$${(cartProvider.totalPrice * 0.05).toStringAsFixed(2)}',
                             ),
 
                             const Divider(height: 24),
 
                             _buildSummaryRow(
                               'Total',
-                              '\$${(cartProvider.totalPrice * 1.1).toStringAsFixed(2)}',
+                              '\$${(cartProvider.totalPrice + (cartProvider.totalPrice * 0.05)).toStringAsFixed(2)}',
                               isTotal: true,
                             ),
                           ],

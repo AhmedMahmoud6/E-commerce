@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../models/product.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/wishlist_provider.dart';
+import '../../providers/auth_provider.dart';
 import 'cart_screen.dart';
 
 class ProductDetailScreen extends StatelessWidget {
@@ -14,6 +15,7 @@ class ProductDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final cartProvider = Provider.of<CartProvider>(context);
     final wishlistProvider = Provider.of<WishlistProvider>(context);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     return Scaffold(
       body: CustomScrollView(
@@ -21,20 +23,29 @@ class ProductDetailScreen extends StatelessWidget {
           SliverAppBar(
             expandedHeight: 300,
             flexibleSpace: FlexibleSpaceBar(
-              background: Image.network(
-                product.imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    color: Colors.grey[200],
-                    child: const Icon(
-                      Icons.shopping_bag,
-                      size: 80,
-                      color: Colors.grey,
+              background: (product.imageUrl.trim().isNotEmpty)
+                  ? Image.network(
+                      product.imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: Colors.grey[200],
+                          child: const Icon(
+                            Icons.shopping_bag,
+                            size: 80,
+                            color: Colors.grey,
+                          ),
+                        );
+                      },
+                    )
+                  : Container(
+                      color: Colors.grey[200],
+                      child: const Icon(
+                        Icons.shopping_bag,
+                        size: 80,
+                        color: Colors.grey,
+                      ),
                     ),
-                  );
-                },
-              ),
             ),
             actions: [
               IconButton(
@@ -44,11 +55,11 @@ class ProductDetailScreen extends StatelessWidget {
                       : Icons.favorite_border,
                   color: wishlistProvider.isInWishlist(product.id)
                       ? Colors.red
-                      : Colors.white,
+                      : Colors.redAccent,
                 ),
-                onPressed: () {
+                onPressed: () async {
                   if (wishlistProvider.isInWishlist(product.id)) {
-                    wishlistProvider.removeFromWishlist(product.id);
+                    await wishlistProvider.removeFromWishlist(product.id);
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('Removed from wishlist'),
@@ -56,7 +67,10 @@ class ProductDetailScreen extends StatelessWidget {
                       ),
                     );
                   } else {
-                    wishlistProvider.addToWishlist(product);
+                    await wishlistProvider.addToWishlist(
+                      product,
+                      currentUserId: authProvider.user?.id,
+                    );
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('Added to wishlist!'),
@@ -81,9 +95,9 @@ class ProductDetailScreen extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  
+
                   const SizedBox(height: 8),
-                  
+
                   Row(
                     children: [
                       const Icon(Icons.category, color: Colors.grey, size: 20),
@@ -92,10 +106,9 @@ class ProductDetailScreen extends StatelessWidget {
                         product.category,
                         style: TextStyle(color: Colors.grey[600], fontSize: 16),
                       ),
-                      
+
                       const Spacer(),
-                      
-                    
+
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
@@ -116,9 +129,9 @@ class ProductDetailScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   Text(
                     '\$${product.price.toStringAsFixed(2)}',
                     style: const TextStyle(
@@ -127,27 +140,27 @@ class ProductDetailScreen extends StatelessWidget {
                       color: Color(0xFFFF9900),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   const Text(
                     'Description',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                  
+
                   const SizedBox(height: 8),
-                  
+
                   Text(
                     product.description,
                     style: const TextStyle(fontSize: 16, height: 1.5),
                   ),
-                  
+
                   const SizedBox(height: 16),
-              
+
                   _buildDetailRow('Status', product.status),
                   _buildDetailRow('Stock', '${product.stock} units'),
                   _buildDetailRow('Merchant ID', product.merchantId.toString()),
-                  
+
                   const SizedBox(height: 32),
                 ],
               ),
@@ -190,23 +203,29 @@ class ProductDetailScreen extends StatelessWidget {
                     );
                   }
                 },
-                icon: const Icon(Icons.shopping_cart),
-                label: const Text('Add to Cart'),
+                icon: const Icon(Icons.shopping_cart, color: Colors.white),
+                label: const Text(
+                  'Add to Cart',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color.fromARGB(255, 85, 113, 148),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
               ),
             ),
-            
+
             const SizedBox(width: 12),
-            
+
             Expanded(
               child: ElevatedButton(
                 onPressed: () {
                   if (product.stock > 0) {
                     cartProvider.addToCart(product);
-                    Navigator.push(
+                    Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(
                         builder: (context) => const CartScreen(),
@@ -215,7 +234,13 @@ class ProductDetailScreen extends StatelessWidget {
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Product out of stock!'),
+                        content: Text(
+                          'Product out of stock!',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         backgroundColor: Colors.red,
                       ),
                     );
@@ -225,7 +250,13 @@ class ProductDetailScreen extends StatelessWidget {
                   backgroundColor: const Color(0xFFFF9900),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                child: const Text('Buy Now'),
+                child: const Text(
+                  'Buy Now',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
           ],
@@ -239,10 +270,7 @@ class ProductDetailScreen extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          Text(
-            '$label: ',
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
+          Text('$label: ', style: const TextStyle(fontWeight: FontWeight.bold)),
           Text(value),
         ],
       ),

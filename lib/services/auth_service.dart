@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
-  static const String _baseUrl = 'https://e-commerce-ibm.vercel.app/api';
+  static const String _baseUrl = "https://e-commerce-ibm.vercel.app/api";
 
   Future<void> _setToken(String token) async {
     final prefs = await SharedPreferences.getInstance();

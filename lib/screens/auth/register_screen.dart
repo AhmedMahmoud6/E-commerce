@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
+import 'login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -20,7 +21,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String _selectedRole = 'member';
   bool _isSubmitting = false;
 
-  void _register(BuildContext context) {
+  Future<void> _register(BuildContext context) async {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
     final username = _usernameController.text.trim();
@@ -81,9 +82,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    authProvider.register(newUser);
+    await authProvider.register(newUser);
 
-    _showSuccessMessage(context);
+    if (authProvider.error.isEmpty) {
+      _showSuccessMessage(context);
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(authProvider.error)),
+      );
+    }
   }
 
   void _showSuccessMessage(BuildContext context) {

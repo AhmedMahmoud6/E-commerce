@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
+import '../../providers/cart_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -73,6 +74,8 @@ class _LoginScreenState extends State<LoginScreen> {
         if ((authProvider.user?.role ?? _selectedRole) == 'member') {
           await productProvider.loadProducts();
         }
+        final cartProvider = Provider.of<CartProvider>(context, listen: false);
+        await cartProvider.loadCart();
         if (mounted) {
           Navigator.pushReplacement(
             context,

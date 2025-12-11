@@ -36,12 +36,12 @@ class CartScreen extends StatelessWidget {
                     itemCount: cartProvider.cartProducts.length,
                     itemBuilder: (context, index) {
                       final product = cartProvider.cartProducts[index];
-                      
+
                       final cart = cartProvider.cart;
                       if (cart == null) return const SizedBox();
 
                       final productIndex = cart.productIds.indexWhere(
-                       (id) => id == product.id,  
+                        (id) => id == product.id,
                       );
 
                       if (productIndex == -1) return const SizedBox();
@@ -49,7 +49,7 @@ class CartScreen extends StatelessWidget {
                       final quantity = cart.quantities[productIndex];
 
                       return CartItemCard(
-                       productId: product.id, 
+                        productId: product.id,
                         productName: product.name,
                         price: product.price,
                         imageUrl: product.imageUrl,
@@ -131,12 +131,12 @@ class CartScreen extends StatelessWidget {
           const SizedBox(height: 8),
           _buildSummaryRow(
             'Tax:',
-            '\$${(cartProvider.totalPrice * 0.1).toStringAsFixed(2)}',
+            '\$${(cartProvider.totalPrice * 0.05).toStringAsFixed(2)}',
           ),
           const Divider(height: 24),
           _buildSummaryRow(
             'Total:',
-            '\$${(cartProvider.totalPrice * 1.1).toStringAsFixed(2)}',
+            '\$${(cartProvider.totalPrice + (cartProvider.totalPrice * 0.05)).toStringAsFixed(2)}',
             isBold: true,
             isTotal: true,
           ),

@@ -1,52 +1,80 @@
-import 'package:ecommerce_app/models/cart_item.dart';
+import '../models/cart_item.dart';
 import 'package:flutter/foundation.dart';
 import '../models/product.dart';
+import '../services/cart_service.dart';
+import '../services/product_service.dart';
 
 class CartProvider with ChangeNotifier {
   Cart? _cart;
   List<Product> _cartProducts = [];
   double _totalPrice = 0.0;
+  final CartService _cartService = CartService();
+  bool _isLoading = false;
 
   Cart? get cart => _cart;
   List<Product> get cartProducts => _cartProducts;
   double get totalPrice => _totalPrice;
   int get itemCount => _cart?.productIds.length ?? 0;
+  bool get isLoading => _isLoading;
   Future<void> _loadCartProducts(List<String> productIds) async {
-    _cartProducts = [
-      Product(
-        id: '1',
-        name: 'Wireless Bluetooth Headphones',
-        price: 99.99,
-        description: 'High-quality wireless headphones',
-        category: 'Electronics',
-        imageUrl: 'https://via.placeholder.com/300',
-        status: 'available',
-        stock: 50,
-        merchantId: '2',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      ),
-    ].where((product) => productIds.contains(product.id)).toList();
+    _cartProducts = [];
+    if (productIds.isEmpty) return;
+    final productService = ProductService();
+    final futures = <Future<Product?>>[];
+    for (final id in productIds) {
+      futures.add(() async {
+        try {
+          return await productService.getProductById(id);
+        } catch (_) {
+          return null;
+        }
+      }());
+    }
+    final results = await Future.wait<Product?>(futures);
+    // Preserve order and create placeholder objects for any products
+    // that failed to load so the UI can still render the cart items.
+    final loaded = results;
+    final List<Product> resolved = [];
+    for (int i = 0; i < productIds.length; i++) {
+      final p = (i < loaded.length) ? loaded[i] : null;
+      if (p != null) {
+        resolved.add(p);
+      } else {
+        resolved.add(
+          Product(
+            id: productIds[i],
+            name: 'Unknown product',
+            price: 0.0,
+            description: '',
+            category: '',
+            imageUrl: '',
+            status: 'unknown',
+            stock: 0,
+            merchantId: '0',
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+        );
+      }
+    }
+    _cartProducts = resolved;
   }
 
-  void addToCart(Product product) {
+  Future<void> addToCart(Product product) async {
     debugPrint('Adding to cart: ${product.name}');
 
     if (_cart == null) {
       _cart = Cart(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        userId: '1',
+        userId: _cart?.userId ?? '',
         productIds: [product.id],
         quantities: [1],
       );
-      debugPrint('Created new cart');
     } else {
       final index = _cart!.productIds.indexWhere((id) => id == product.id);
-
       if (index >= 0) {
         final newQuantities = List<int>.from(_cart!.quantities);
         newQuantities[index] = newQuantities[index] + 1;
-
         _cart = Cart(
           id: _cart!.id,
           userId: _cart!.userId,
@@ -54,67 +82,137 @@ class CartProvider with ChangeNotifier {
           quantities: newQuantities,
           createdAt: _cart!.createdAt,
         );
-        debugPrint('Increased quantity for ${product.name}');
       } else {
         final newProductIds = List<String>.from(_cart!.productIds)
           ..add(product.id);
         final newQuantities = List<int>.from(_cart!.quantities)..add(1);
-
         _cart = Cart(
           id: _cart!.id,
           userId: _cart!.userId,
           productIds: newProductIds,
           quantities: newQuantities,
         );
-        debugPrint('Added new product: ${product.name}');
       }
     }
 
     if (!_cartProducts.any((p) => p.id == product.id)) {
       _cartProducts.add(product);
-      debugPrint('Added to cartProducts: ${product.name}');
     }
 
     _calculateTotal();
     notifyListeners();
 
-    debugPrint(' Cart updated. Items: ${_cart?.productIds}');
-    debugPrint(' Total price: $_totalPrice');
-  }
-
-  void removeFromCart(String productId) {
-    debugPrint('Removing from cart: $productId');
-
-    if (_cart == null) return;
-
-    final index = _cart!.productIds.indexWhere((id) => id == productId);
-    if (index >= 0) {
-      final newProductIds = List<String>.from(_cart!.productIds)
-        ..removeAt(index);
-      final newQuantities = List<int>.from(_cart!.quantities)..removeAt(index);
-
-      _cart = Cart(
-        id: _cart!.id,
-        userId: _cart!.userId,
-        productIds: newProductIds,
-        quantities: newQuantities,
-        createdAt: _cart!.createdAt,
-      );
-
-      _cartProducts.removeWhere((product) => product.id == productId);
-
-      _calculateTotal();
-      notifyListeners();
-
-      debugPrint('Removed from cart: $productId');
+    try {
+      final updated = await _cartService.addToCart(product.id, qty: 1);
+      if (updated != null) {
+        _cart = updated;
+        await _loadCartProducts(_cart!.productIds);
+        _calculateTotal();
+        notifyListeners();
+      } else {
+        final fetched = await _cartService.fetchCart();
+        _cart = fetched;
+        await _loadCartProducts(_cart!.productIds);
+        _calculateTotal();
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Failed to persist cart add: $e');
+      try {
+        final fetched = await _cartService.fetchCart();
+        _cart = fetched;
+        await _loadCartProducts(_cart!.productIds);
+        _calculateTotal();
+        notifyListeners();
+      } catch (_) {}
     }
   }
 
-  void updateQuantity(String productId, int newQuantity) {
+  Future<void> removeFromCart(String productId) async {
+    debugPrint('Removing from cart: $productId');
+
+    if (_cart == null) return;
+    final index = _cart!.productIds.indexWhere((id) => id == productId);
+    if (index < 0) return;
+
+    // Snapshot current state so we can restore on failure
+    final previousCart = _cart!;
+    final previousCartProducts = List<Product>.from(_cartProducts);
+
+    // Optimistic local removal
+    final newProductIds = List<String>.from(_cart!.productIds)..removeAt(index);
+    final newQuantities = List<int>.from(_cart!.quantities)..removeAt(index);
+
+    _cart = Cart(
+      id: _cart!.id,
+      userId: _cart!.userId,
+      productIds: newProductIds,
+      quantities: newQuantities,
+      createdAt: _cart!.createdAt,
+    );
+
+    _cartProducts.removeWhere((product) => product.id == productId);
+
+    _calculateTotal();
+    notifyListeners();
+
+    try {
+      final updated = await _cartService.removeFromCart(productId);
+
+      // If service returned an updated cart, apply it. Otherwise fetch server state.
+      Cart serverCart;
+      if (updated != null) {
+        serverCart = updated;
+      } else {
+        serverCart = await _cartService.fetchCart();
+      }
+
+      // Defensive validation: if the server returned an empty cart while our
+      // previous cart had items (i.e. the server response looks suspicious),
+      // do not blindly apply it. Try to re-fetch; if still empty, restore the
+      // previous snapshot to avoid wiping the UI.
+      if (serverCart.productIds.isEmpty && previousCart.productIds.isNotEmpty) {
+        debugPrint(
+            'Warning: server returned empty cart after remove; verifying with fetch...');
+        try {
+          final fetched = await _cartService.fetchCart();
+          if (fetched.productIds.isNotEmpty) {
+            _cart = fetched;
+          } else {
+            debugPrint('Fetch also returned empty cart — restoring previous snapshot');
+            _cart = previousCart;
+            _cartProducts = previousCartProducts;
+          }
+        } catch (e) {
+          debugPrint('Fetch failed while validating server cart: $e');
+          _cart = previousCart;
+          _cartProducts = previousCartProducts;
+        }
+        _calculateTotal();
+        notifyListeners();
+        return;
+      }
+
+      _cart = serverCart;
+      debugPrint('Server cart after remove: ${_cart?.productIds}');
+      await _loadCartProducts(_cart!.productIds);
+      _calculateTotal();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Failed to persist cart remove: $e');
+      // Restore previous state to keep UI consistent with server
+      _cart = previousCart;
+      _cartProducts = previousCartProducts;
+      _calculateTotal();
+      notifyListeners();
+    }
+  }
+
+  Future<void> updateQuantity(String productId, int newQuantity) async {
     debugPrint('Updating quantity: $productId -> $newQuantity');
 
     if (newQuantity <= 0) {
-      removeFromCart(productId);
+      await removeFromCart(productId);
       return;
     }
 
@@ -136,16 +234,47 @@ class CartProvider with ChangeNotifier {
       _calculateTotal();
       notifyListeners();
 
-      debugPrint('Quantity updated');
+      try {
+        final updated = await _cartService.updateQuantity(
+          productId,
+          newQuantity,
+        );
+        if (updated != null) {
+          _cart = updated;
+          await _loadCartProducts(_cart!.productIds);
+          _calculateTotal();
+          notifyListeners();
+        }
+      } catch (e) {
+        debugPrint('Failed to persist cart quantity update: $e');
+      }
     }
   }
 
-  void clearCart() {
+  Future<void> clearCart() async {
     debugPrint(' Clearing cart');
-    _cart = null;
+    try {
+      await _cartService.clearCart();
+    } catch (e) {
+      debugPrint('Failed to persist cart clear: $e');
+    }
+    _cart = Cart(
+      id: '',
+      userId: '',
+      productIds: [],
+      quantities: [],
+      createdAt: null,
+    );
     _cartProducts.clear();
     _totalPrice = 0.0;
     notifyListeners();
+    try {
+      final fetched = await _cartService.fetchCart();
+      _cart = fetched;
+      await _loadCartProducts(_cart!.productIds);
+      _calculateTotal();
+      notifyListeners();
+    } catch (_) {}
     debugPrint(' Cart cleared');
   }
 
@@ -186,21 +315,28 @@ class CartProvider with ChangeNotifier {
 
   Future<void> loadCart() async {
     debugPrint('Loading cart...');
-
-    await Future.delayed(Duration(seconds: 1));
-
-    _cart = Cart(
-      id: '1',
-      userId: '1',
-      productIds: ['1', '2'],
-      quantities: [2, 1],
-      createdAt: DateTime.now().subtract(Duration(days: 1)),
-    );
-
-    await _loadCartProducts(_cart!.productIds);
-    _calculateTotal();
+    _isLoading = true;
     notifyListeners();
-
-    debugPrint('Cart loaded. Items: ${_cart!.productIds}');
+    try {
+      final fetched = await _cartService.fetchCart();
+      _cart = fetched;
+      await _loadCartProducts(_cart!.productIds);
+      _calculateTotal();
+      debugPrint('Cart loaded. Items: ${_cart!.productIds}');
+    } catch (e) {
+      debugPrint('Failed to load cart from API: $e');
+      _cart = Cart(
+        id: '',
+        userId: '',
+        productIds: [],
+        quantities: [],
+        createdAt: null,
+      );
+      _cartProducts = [];
+      _totalPrice = 0.0;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 }

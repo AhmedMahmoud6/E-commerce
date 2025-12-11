@@ -30,11 +30,11 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AdminProvider()),
       ],
       child: MaterialApp(
-        title: 'E-Commerce App',
+        title: 'FlashCart',
         theme: AppTheme.lightTheme,
         debugShowCheckedModeBanner: false,
         home: SplashScreen(),
       ),
     );
   }
-} 
+}

@@ -1,5 +1,3 @@
-import 'package:ecommerce_app/models/product.dart';
-
 class Order {
   final String id;
   final String userId;

@@ -176,15 +176,28 @@ class _MerchantProductsScreenState extends State<MerchantProductsScreen> {
                           ),
                           child: PopupMenuButton<String>(
                             icon: const Icon(Icons.more_vert, size: 18),
-                            onSelected: (value) {
+                            onSelected: (value) async {
+                              final authProvider = Provider.of<AuthProvider>(
+                                context,
+                                listen: false,
+                              );
+                              final merchantProvider = Provider.of<MerchantProvider>(
+                                context,
+                                listen: false,
+                              );
                               if (value == 'edit') {
-                                Navigator.push(
+                                final result = await Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) =>
                                         EditProductScreen(product: product),
                                   ),
                                 );
+                                if (result == true && authProvider.user != null) {
+                                  await merchantProvider.loadMerchantProducts(
+                                    authProvider.user!.id,
+                                  );
+                                }
                               } else if (value == 'delete') {
                                 _deleteProduct(product.id, context);
                               }

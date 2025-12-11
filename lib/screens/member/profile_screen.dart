@@ -59,7 +59,6 @@ class ProfileScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-       
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(20),
@@ -72,7 +71,11 @@ class ProfileScreen extends StatelessWidget {
                           ? NetworkImage(user!.profileUrl!)
                           : null,
                       child: user?.profileUrl == null
-                          ? const Icon(Icons.person, size: 40, color: Colors.white)
+                          ? const Icon(
+                              Icons.person,
+                              size: 40,
+                              color: Colors.white,
+                            )
                           : null,
                     ),
                     const SizedBox(height: 16),
@@ -112,7 +115,7 @@ class ProfileScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-            
+
                     if (user?.address != null) ...[
                       const SizedBox(height: 8),
                       Text(
@@ -121,7 +124,7 @@ class ProfileScreen extends StatelessWidget {
                         textAlign: TextAlign.center,
                       ),
                     ],
-              
+
                     const SizedBox(height: 8),
                     Text(
                       'customer since: ${_formatDate(user?.createdAt ?? DateTime.now())}',
@@ -142,16 +145,19 @@ class ProfileScreen extends StatelessWidget {
                   // TODO: Navigate to edit profile
                 },
               ),
-              _buildSettingsItem(
-                icon: Icons.favorite_border,
-                title: 'Wishlist',
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const WishlistScreen()),
-                  );
-                },
-              ),
+              if (user?.role == 'member')
+                _buildSettingsItem(
+                  icon: Icons.favorite_border,
+                  title: 'Wishlist',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const WishlistScreen(),
+                      ),
+                    );
+                  },
+                ),
               _buildSettingsItem(
                 icon: Icons.notifications_none,
                 title: 'Notifications',
@@ -171,17 +177,21 @@ class ProfileScreen extends StatelessWidget {
             const SizedBox(height: 24),
 
             _buildSectionHeader('Orders'),
+
             _buildSettingsCard([
-              _buildSettingsItem(
-                icon: Icons.shopping_bag_outlined,
-                title: 'My Orders',
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const OrdersScreen()),
-                  );
-                },
-              ),
+              if (user?.role == 'member')
+                _buildSettingsItem(
+                  icon: Icons.shopping_bag_outlined,
+                  title: 'My Orders',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const OrdersScreen(),
+                      ),
+                    );
+                  },
+                ),
               _buildSettingsItem(
                 icon: Icons.receipt_long_outlined,
                 title: 'Order History',

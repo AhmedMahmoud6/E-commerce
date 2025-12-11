@@ -6,25 +6,33 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 
 class ProductService {
-  static const String _baseUrl = 'https://e-commerce-ibm.vercel.app/api';
+  static const String _baseUrl = "https://e-commerce-ibm.vercel.app/api";
 
   Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('auth_token');
   }
 
-  Future<List<Product>> getProducts({String? search, int limit = 50, int page = 1}) async {
-    final uri = Uri.parse('$_baseUrl/products').replace(queryParameters: {
-      if (search != null && search.isNotEmpty) 'search': search,
-      'limit': limit.toString(),
-      'page': page.toString(),
-    });
+  Future<List<Product>> getProducts({
+    String? search,
+    int limit = 50,
+    int page = 1,
+  }) async {
+    final uri = Uri.parse('$_baseUrl/products').replace(
+      queryParameters: {
+        if (search != null && search.isNotEmpty) 'search': search,
+        'limit': limit.toString(),
+        'page': page.toString(),
+      },
+    );
     final resp = await http.get(uri);
     if (resp.statusCode == 404) {
       return <Product>[];
     }
     if (resp.statusCode != 200) {
-      throw Exception('Failed to fetch products: ${_extractErrorMessage(resp.body)}');
+      throw Exception(
+        'Failed to fetch products: ${_extractErrorMessage(resp.body)}',
+      );
     }
     final data = jsonDecode(resp.body) as Map<String, dynamic>;
     final items = (data['items'] as List?) ?? [];
@@ -39,8 +47,11 @@ class ProductService {
       throw Exception('Failed to fetch product: ${resp.body}');
     }
     final data = jsonDecode(resp.body) as Map<String, dynamic>;
-    final item = (data['item'] as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
-    final productJson = (item['product'] as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
+    final item =
+        (data['item'] as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
+    final productJson =
+        (item['product'] as Map?)?.cast<String, dynamic>() ??
+        <String, dynamic>{};
     return Product.fromJson(productJson);
   }
 
@@ -59,7 +70,14 @@ class ProductService {
       map[key] = (map[key] ?? 0) + 1;
     }
     return map.entries
-        .map((e) => Category(id: e.key, name: e.key, image: '', productCount: e.value))
+        .map(
+          (e) => Category(
+            id: e.key,
+            name: e.key,
+            image: '',
+            productCount: e.value,
+          ),
+        )
         .toList();
   }
 
@@ -70,17 +88,15 @@ class ProductService {
     }
     final resp = await http.post(
       Uri.parse('$_baseUrl/products'),
-      headers: {
-        'Content-Type': 'application/json',
-        'authorization': token,
-      },
+      headers: {'Content-Type': 'application/json', 'authorization': token},
       body: jsonEncode(product.toJson()),
     );
     if (resp.statusCode != 200 && resp.statusCode != 201) {
       throw Exception('Failed to add product: ${resp.body}');
     }
     final data = jsonDecode(resp.body) as Map<String, dynamic>;
-    final item = (data['item'] as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
+    final item =
+        (data['item'] as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
     return Product.fromJson(item);
   }
 
@@ -92,17 +108,15 @@ class ProductService {
     }
     final resp = await http.put(
       Uri.parse('$_baseUrl/products/${product.id}'),
-      headers: {
-        'Content-Type': 'application/json',
-        'authorization': token,
-      },
+      headers: {'Content-Type': 'application/json', 'authorization': token},
       body: jsonEncode(product.toJson()),
     );
     if (resp.statusCode != 200) {
       throw Exception('Failed to update product: ${resp.body}');
     }
     final data = jsonDecode(resp.body) as Map<String, dynamic>;
-    final item = (data['item'] as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
+    final item =
+        (data['item'] as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
     return Product.fromJson(item);
   }
 
@@ -128,7 +142,8 @@ class ProductService {
   String _extractErrorMessage(String body) {
     try {
       final json = jsonDecode(body);
-      if (json is Map && json['message'] is String) return json['message'] as String;
+      if (json is Map && json['message'] is String)
+        return json['message'] as String;
       return body;
     } catch (_) {
       return body;

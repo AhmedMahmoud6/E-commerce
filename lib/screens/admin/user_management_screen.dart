@@ -32,7 +32,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     return users.where((user) => user.role == _selectedFilter).toList();
   }
 
-  void _deleteUser(String userId, String userName, BuildContext context) { 
+  void _deleteUser(String userId, String userName, BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -83,9 +83,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
   void _showUserDetails(BuildContext context, dynamic user) {
     if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User data is incomplete')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('User data is incomplete')));
       return;
     }
 
@@ -101,7 +101,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               _buildUserDetailRow('User ID', user.id?.toString() ?? 'N/A'),
               _buildUserDetailRow('Username', user.username ?? 'N/A'),
               _buildUserDetailRow('Email', user.email ?? 'N/A'),
-              _buildUserDetailRow('Role', _getRoleText(user.role ?? 'customer')),
+              _buildUserDetailRow(
+                'Role',
+                _getRoleText(user.role ?? 'customer'),
+              ),
 
               _buildUserDetailRow('Address', user.address ?? 'Not provided'),
             ],
@@ -151,39 +154,39 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             child: adminProvider.isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : filteredUsers.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.people_outline,
-                              size: 80,
-                              color: Colors.grey[400],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No users found',
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.people_outline,
+                          size: 80,
+                          color: Colors.grey[400],
                         ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: () async {
-                          await adminProvider.loadAllUsers();
-                        },
-                        child: ListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: filteredUsers.length,
-                          itemBuilder: (context, index) {
-                            final user = filteredUsers[index];
-                            return _buildUserCard(user, context);
-                          },
+                        const SizedBox(height: 16),
+                        Text(
+                          'No users found',
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: Colors.grey[600],
+                          ),
                         ),
-                      ),
+                      ],
+                    ),
+                  )
+                : RefreshIndicator(
+                    onRefresh: () async {
+                      await adminProvider.loadAllUsers();
+                    },
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: filteredUsers.length,
+                      itemBuilder: (context, index) {
+                        final user = filteredUsers[index];
+                        return _buildUserCard(user, context);
+                      },
+                    ),
+                  ),
           ),
         ],
       ),

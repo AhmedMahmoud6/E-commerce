@@ -1,72 +1,104 @@
-import 'package:ecommerce_app/models/wishlist_item.dart';
+import '../models/wishlist_item.dart';
 import 'package:flutter/foundation.dart';
 import '../models/product.dart';
+import '../services/wishlist_service.dart';
+import '../services/product_service.dart';
 
 class WishlistProvider with ChangeNotifier {
   Wishlist? _wishlist;
   List<Product> _wishlistProducts = [];
+  final WishlistService _wishlistService = WishlistService();
+  bool _isLoading = false;
+
+  bool get isLoading => _isLoading;
 
   Wishlist? get wishlist => _wishlist;
   List<Product> get wishlistProducts => _wishlistProducts;
   int get itemCount => _wishlist?.productIds.length ?? 0;
 
   Future<void> _loadWishlistProducts(List<String> productIds) async {
-    _wishlistProducts = [
-      Product(
-        id: '1',
-        name: 'Wireless Bluetooth Headphones',
-        price: 99.99,
-        description: 'High-quality wireless headphones',
-        category: 'Electronics',
-        imageUrl: 'https://via.placeholder.com/300',
-        status: 'available',
-        stock: 50,
-        merchantId: '2',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      ),
-      Product(
-        id: '2',
-        name: 'Smart Watch Series 5',
-        price: 199.99,
-        description: 'Advanced smartwatch',
-        category: 'Electronics',
-        imageUrl: 'https://via.placeholder.com/300',
-        status: 'available',
-        stock: 30,
-        merchantId: '2',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      ),
-    ].where((product) => productIds.contains(product.id)).toList();
+    _wishlistProducts = [];
+    if (productIds.isEmpty) return;
+    final productService = ProductService();
+    final futures = <Future<Product?>>[];
+    for (final id in productIds) {
+      futures.add(() async {
+        try {
+          return await productService.getProductById(id);
+        } catch (_) {
+          return null;
+        }
+      }());
+    }
+    final results = await Future.wait<Product?>(futures);
+    _wishlistProducts = results.whereType<Product>().toList();
   }
 
-  void addToWishlist(Product product) {
+  Future<void> addToWishlist(Product product, {String? currentUserId}) async {
     debugPrint('Adding to wishlist: ${product.name}');
 
-    if (_wishlist == null) {
-      _wishlist = Wishlist(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        userId: '1',
-        productIds: [product.id],
-        createdAt: DateTime.now(),
-      );
+    // If we don't yet have a wishlist object, try to call server first
+    if (_wishlist == null ||
+        (_wishlist!.productIds.isEmpty && _wishlist!.id == '')) {
+      try {
+        final updated = await _wishlistService.addToWishlist(product.id);
+        if (updated != null) {
+          // use server-provided user id if missing
+          _wishlist = Wishlist(
+            id: updated.id.isNotEmpty ? updated.id : (currentUserId ?? ''),
+            userId: updated.userId.isNotEmpty
+                ? updated.userId
+                : (currentUserId ?? ''),
+            productIds: updated.productIds,
+            createdAt: updated.createdAt,
+          );
+          await _loadWishlistProducts(_wishlist!.productIds);
+          notifyListeners();
+          return;
+        }
+      } catch (e) {
+        debugPrint('Server add failed, falling back to optimistic update: $e');
+      }
     }
 
+    // Optimistic update: add locally then try to persist
+    if (_wishlist == null) {
+      _wishlist = Wishlist(id: '', userId: currentUserId ?? '', productIds: []);
+    }
     if (!_wishlist!.productIds.contains(product.id)) {
       _wishlist!.productIds.add(product.id);
       _wishlistProducts.add(product);
       notifyListeners();
+      try {
+        final updated = await _wishlistService.addToWishlist(product.id);
+        if (updated != null) {
+          _wishlist = updated;
+          await _loadWishlistProducts(_wishlist!.productIds);
+          notifyListeners();
+        }
+      } catch (e) {
+        debugPrint('Failed to persist wishlist add: $e');
+      }
     }
   }
 
-  void removeFromWishlist(String productId) {
+  Future<void> removeFromWishlist(String productId) async {
     debugPrint('Removing from wishlist: $productId');
-
     if (_wishlist != null && _wishlist!.productIds.contains(productId)) {
+      // optimistic remove
       _wishlist!.productIds.remove(productId);
       _wishlistProducts.removeWhere((product) => product.id == productId);
       notifyListeners();
+      try {
+        final updated = await _wishlistService.removeFromWishlist(productId);
+        if (updated != null) {
+          _wishlist = updated;
+          await _loadWishlistProducts(_wishlist!.productIds);
+          notifyListeners();
+        }
+      } catch (e) {
+        debugPrint('Failed to persist wishlist remove: $e');
+      }
     }
   }
 
@@ -84,21 +116,36 @@ class WishlistProvider with ChangeNotifier {
     debugPrint('Wishlist cleared');
   }
 
-  Future<void> loadWishlist() async {
+  Future<void> loadWishlist({String? currentUserId}) async {
     debugPrint('Loading wishlist...');
-
-    await Future.delayed(Duration(seconds: 1));
-
-    _wishlist = Wishlist(
-      id: '1',
-      userId: '1',
-      productIds: ['1', '2', '3'],
-      createdAt: DateTime.now().subtract(Duration(days: 5)),
-    );
-
-    await _loadWishlistProducts(_wishlist!.productIds);
+    _isLoading = true;
     notifyListeners();
-
-    debugPrint('Wishlist loaded. Items: ${_wishlist!.productIds}');
+    try {
+      final fetched = await _wishlistService.fetchWishlist();
+      // Use server-supplied metadata when available; otherwise use currentUserId if provided
+      final uid = fetched.userId.isNotEmpty
+          ? fetched.userId
+          : (currentUserId ?? '');
+      _wishlist = Wishlist(
+        id: fetched.id.isNotEmpty ? fetched.id : '',
+        userId: uid,
+        productIds: fetched.productIds,
+        createdAt: fetched.createdAt,
+      );
+      await _loadWishlistProducts(_wishlist!.productIds);
+      debugPrint('Wishlist loaded. Items: ${_wishlist!.productIds}');
+    } catch (e) {
+      debugPrint('Failed to load wishlist from API: $e');
+      _wishlist = Wishlist(
+        id: '',
+        userId: currentUserId ?? '',
+        productIds: [],
+        createdAt: null,
+      );
+      _wishlistProducts = [];
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 }

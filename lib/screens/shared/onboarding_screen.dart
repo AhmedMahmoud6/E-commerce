@@ -14,7 +14,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   final List<OnboardingPage> _onboardingPages = [
     OnboardingPage(
-      title: 'Welcome to E-Commerce',
+      title: 'Welcome to FlashCart',
       description:
           'Discover amazing products and great deals all in one place.',
       image: Icons.shopping_cart,

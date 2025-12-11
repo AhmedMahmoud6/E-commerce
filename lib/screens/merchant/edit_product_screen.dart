@@ -107,9 +107,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
 
       await Future.delayed(const Duration(milliseconds: 1500));
 
-      print(' Going back to products screen...');
       if (mounted) {
-        Navigator.pop(context);
+        Navigator.pop(context, true);
       }
     } catch (e) {
       print(' Error updating product: $e');
