@@ -9,19 +9,8 @@ const cartRoutes = require("./routes/cart-route");
 const wishlistRoutes = require("./routes/wishlist-route");
 
 app.use(express.json());
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
-  res.header(
-    "Access-Control-Allow-Methods",
-    "GET,POST,PUT,PATCH,DELETE,OPTIONS"
-  );
-  res.header("Access-Control-Allow-Headers", "Content-Type, authorization");
-  if (req.method === "OPTIONS") return res.sendStatus(200);
-  next();
-});
-
 require("dotenv").config();
-require("./config/db");
+const { connectDB } = require("./config/db");
 
 app.use("/api/products", productRoutes);
 app.use("/api/register", registerRoutes);
@@ -33,6 +22,14 @@ app.use("/api/wishlist", wishlistRoutes);
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
-});
+(async () => {
+  try {
+    await connectDB();
+    app.listen(PORT, () => {
+      console.log(`Server listening on port ${PORT}`);
+    });
+  } catch (err) {
+    console.error("Failed to start server due to DB connection error:", err);
+    process.exit(1);
+  }
+})();
